@@ -1,0 +1,57 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:4.4
+    container_name: file-storage-mongodb
+    restart: always
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=${MONGO_ROOT_USER:-admin}
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_ROOT_PASSWORD:-password}
+    networks:
+      - file-storage-network
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: file-storage-backend
+    restart: always
+    ports:
+      - "8000:8000"
+    volumes:
+      - storage_files:/app/storage
+    environment:
+      - MONGODB_URL=mongodb://${MONGO_ROOT_USER:-admin}:${MONGO_ROOT_PASSWORD:-password}@mongodb:27017/
+      - MONGODB_DB_NAME=${MONGODB_DB_NAME:-file_storage}
+      - STORAGE_PATH=/app/storage
+      - SECRET_KEY=${SECRET_KEY:-your-super-secret-key-for-jwt}
+    depends_on:
+      - mongodb
+    networks:
+      - file-storage-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: file-storage-frontend
+    restart: always
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - file-storage-network
+
+volumes:
+  mongodb_data:
+  storage_files:
+
+networks:
+  file-storage-network:
+    driver: bridge
